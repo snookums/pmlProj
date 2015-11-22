@@ -1,0 +1,91 @@
+---
+title: "practical machine learning project"
+author: "d snook"
+date: "Sunday, November 22, 2015"
+output: html_document
+---
+
+Abstract
+
+This project analyzes the data from Human Action Recognition research and builds up a machine learning system to predict the type of action. The description of the research and the data can be found on http://groupware.les.inf.puc-rio.br/har.
+The analysis in this project consists four parts: exploratory analysis, data preprocess, modeling and the final results. Exploratory analysis includes overview of the data which helps to decide the preprocess precedure. Data preprocess cleans and 'tidys' the data making it suitable for training. The best model (random forest) was selected based on the accuracy on the validation set. The final accuracy is obtained by prediction on the test set.
+
+
+Exploratory Analysis
+
+The data set consists of 19622 observations and 159 variables including the outcome (classe), the type of action. After loaded in to R, the data set has one column of user_names (class factor), several column of date and time (class factors), and multiple columns consisting of missing values. The missing values are indentifed by "NA" or "".
+
+
+Data Preprocess
+
+Taking a view of the training data file, the data contained many columns with "NA" values and were removed, as were all other variables of type 'factor' (with the exception of the outcome, or 'classe'. Variables with near zero variance were also removed. This reduced the possible predictor count from 160 to a more manageable 53 variables.
+
+```{r}
+library(caret)
+
+setwd("~/pmlProj")
+
+trainRaw <- read.table('pml-training.csv', header = TRUE, sep = ',')
+testRaw <- read.table('pml-testing.csv', header = TRUE, sep = ',')
+
+# remove all the NA columns and non-numeric ones; 160 predictors -> 53
+trainTidy <- trainRaw[-c(1:7,12:36,50:59,69:83,87:101,103:112,125:139,141:150)]
+testTidy <- testRaw[-c(1:7,12:36,50:59,69:83,87:101,103:112,125:139,141:150)]
+
+```
+
+A further reduction of the predictor variables was attempted by finding strong correlation (> 0.75) between pairs of variables and removing them as well. The result of this reduction yielded a significantly reduced predictor count of 32.
+
+Both raw data files were entered into R and 'pre-processed' as described above.
+The training file was partitioned into a 70/30 split of training and cross-validation data, with 13737 and 5885 observations, respectively.
+
+```{r}
+inTrain <- createDataPartition(y=trainTidy$classe, p=0.7, list=FALSE)
+trainData <- trainTidy[inTrain, ]
+testXval <- trainTidy[-inTrain, ]
+dim(trainData)
+dim(testXval)
+```
+
+
+Data modeling
+
+A Random forest data model was utilized to perform this classification function. Several earlier attempts to run the train() function on the large dataset caused problems with memory issues. A fix to this was provided by the TA Ray with the following script suggestion: 
+
+```{r cache=TRUE}
+rfMod <- train(classe ~., data=trainData, trControl=trainControl(method="cv", number=3))
+rfMod
+```
+
+
+```{r, echo=TRUE}
+predXval <- predict(rfMod, testXval[-53])
+length(predXval)
+```
+
+Out of sample error (%):
+```{r}
+oosError <- (1 -sum(predXval == testXval$classe)/length(predXval))*100
+oosError
+```
+
+
+
+Summary
+
+The random forest model achieved an in-sample error of less than 1%.
+The out-of-sample error was calculated, as shown above.
+
+This model was then applied to the original test file containing only 20 observations and predictions were performed.
+An astounding 20/20 event classification result was achieved.
+
+```{r}
+# -53 to exclude the last column - not necessary
+pred <- predict(rfMod, testTidy[-53])
+pred
+```
+
+
+
+
+
